@@ -204,7 +204,7 @@ step_70_run_app() {
   log "Затем вернись в Termux и убедись, что всё успешно запустилось."
 
   exec 1>&3 2>&4
-  exec "$py" run.py
+  PYTHONUNBUFFERED=1 "$py" run.py
 }
 
 # -------- main --------
