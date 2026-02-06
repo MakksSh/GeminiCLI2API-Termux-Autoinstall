@@ -102,7 +102,7 @@ step_10_pkg_update_upgrade() {
 
 step_20_pkg_install() {
   cd "$HOME_DIR"
-  pkg install -y nano python rust git python-pip clang binutils python-cryptography psmisc
+  pkg install -y nano python rust git python-pip clang binutils python-cryptography
   if ! pkg install -y nodejs-lts; then
     warn "Пакет nodejs-lts не найден. Ставлю nodejs."
     pkg install -y nodejs
@@ -191,23 +191,12 @@ step_60_install_python_deps() {
 step_70_run_app() {
   cd "$REPO_DIR"
 
-  if ! command -v fuser >/dev/null 2>&1; then
-    log "Установка psmisc для управления процессами..."
-    pkg install -y psmisc >/dev/null 2>&1 || true
-  fi
-
-  local killed=0
-  if command -v fuser >/dev/null 2>&1; then
-    if fuser 8888/tcp >/dev/null 2>&1 || fuser 8080/tcp >/dev/null 2>&1; then
-      warn "Обнаружен запущенный процесс geminicli2api (порт 8888). Перезапускаю..."
-      fuser -k 8888/tcp >/dev/null 2>&1 || true
-      fuser -k 8080/tcp >/dev/null 2>&1 || true
-      killed=1
-    fi
-  fi
-
-  if (( killed == 1 )); then
-    sleep 5
+  pids="$(pgrep -f "$HOME/geminicli2api/.*run\.py" || true)"
+  if [[ -n "${pids:-}" ]]; then
+    warn "Найден запущенный geminicli2api (PID: $pids) — останавливаю"
+    kill $pids 2>/dev/null || true
+    sleep 3
+    kill -9 $pids 2>/dev/null || true
   fi
 
   local py="python"
