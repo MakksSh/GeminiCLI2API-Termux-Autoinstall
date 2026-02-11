@@ -240,7 +240,7 @@ main() {
   if [[ -z "${PROJECT_ID_SAVED}" ]]; then
     local pid="${1:-}"
     if [[ -z "$pid" ]]; then
-      read -r -p "Введите GOOGLE_CLOUD_PROJECT (ID/номер проекта): " pid
+      read -r -p "Введите GOOGLE_CLOUD_PROJECT (ID проекта): " pid
     fi
     pid="${pid//[[:space:]]/}"
     [[ -n "$pid" ]] || die "GOOGLE_CLOUD_PROJECT пустой — так не пойдёт."

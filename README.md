@@ -10,10 +10,10 @@
 
 1. Установи **Termux** (обязательно из F-Droid https://f-droid.org/)
 2. Прочитай гайд от Фрэнки https://t.me/AIandDrama/129 В нём нас интересуют разделы со вступлением, "Подготовка аккаунта" и "Как подключить". Раздел установки на Android пропускаем, скрипт сделает всё за вас.
-3. У тебя должен быть **Google Cloud Project** (нужен его номер)
+3. У тебя должен быть **Google Cloud Project** (нужен его АЙДИ!)
 4. БОНУС! Как получить доступ к Gemini 3 описано здесь: https://t.me/AIandDrama/151 Это можно сделать как до установки `geminicli2api` так и после.
 
-> Найти номер проекта можно в Cloud Console: https://console.cloud.google.com/home/dashboard Убедись, что сверху слева выбран нужный проект. Плашка Project info -> Project number
+> Найти ID проекта можно в Cloud Console: https://console.cloud.google.com/home/dashboard Убедись, что сверху слева выбран нужный проект. Плашка Project info -> Project ID
 
 
 ## Установка одной командой 
@@ -26,13 +26,13 @@ cd ~ && curl -fsSL "https://raw.githubusercontent.com/MakksSh/GeminiCLI2API-Term
 
 Скрипт спросит только `GOOGLE_CLOUD_PROJECT`
 
-Можно сразу передать номер аргументом (без вопросов):
+Можно сразу передать ID проекта аргументом (без вопросов):
 
 ```bash
-cd ~ && curl -fsSL "https://raw.githubusercontent.com/MakksSh/GeminiCLI2API-Termux-Autoinstall/refs/heads/main/cli2api.sh" -o cli2api.sh && chmod +x cli2api.sh && ./cli2api.sh 1234567890
+cd ~ && curl -fsSL "https://raw.githubusercontent.com/MakksSh/GeminiCLI2API-Termux-Autoinstall/refs/heads/main/cli2api.sh" -o cli2api.sh && chmod +x cli2api.sh && ./cli2api.sh gen-lang-client-1234567890
 ```
 
-Цифры в конце замени на свой номер проекта
+Айди в конце замени на свой айди проекта
 
 ## Как запускать в следующий раз
 
