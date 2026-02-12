@@ -77,6 +77,7 @@ on_error() {
   err "Падение на строке $line: $cmd"
   err "Последний завершённый шаг: DONE_STEP=$DONE_STEP"
   err "Перезапусти этот же скрипт — продолжит с нужного места."
+  err "Если ошибка сохраняется — свяжись с автором скрипта: https://t.me/Maks_Sh"
 }
 trap 'on_error "$LINENO" "$BASH_COMMAND"' ERR
 
