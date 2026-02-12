@@ -97,7 +97,7 @@ step_10_pkg_update_upgrade() {
   cd "$HOME_DIR"
   command -v pkg >/dev/null 2>&1 || die "Команда pkg не найдена. Ты точно в Termux?"
   pkg update -y
-  pkg upgrade -y
+  pkg upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
 }
 
 step_20_pkg_install() {
