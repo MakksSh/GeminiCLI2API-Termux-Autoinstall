@@ -1,6 +1,10 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -Eeuo pipefail
 
+VERSION="1.1.0"
+UPDATE_URL="https://raw.githubusercontent.com/MakksSh/GeminiCLI2API-Termux-Autoinstall/refs/heads/main/cli2api.sh"
+SCRIPT_PATH="$(readlink -f "$0")"
+
 APP_NAME="geminicli2api"
 REPO_URL="https://github.com/gzzhongqi/geminicli2api"
 HOME_DIR="$HOME"
@@ -13,7 +17,6 @@ LOG_FILE="$STATE_DIR/install.log"
 mkdir -p "$STATE_DIR"
 touch "$LOG_FILE"
 
-# Лог в консоль + файл
 exec > >(tee -a "$LOG_FILE") 2>&1
 exec 3>&1 4>&2
 
@@ -91,6 +94,56 @@ run_step() {
   "$3"
   ok "Шаг $step завершён: $title"
   set_done "$step"
+}
+
+# -------- self-update --------
+check_self_update() {
+  [[ " $* " == *" --no-update "* ]] && return 0
+
+  log "Проверка обновлений скрипта..."
+
+  local remote_version
+  remote_version=$(curl -sL --connect-timeout 5 "$UPDATE_URL" | grep -m1 -oP '^VERSION="\K[^"]+' || true)
+
+  if [[ -z "$remote_version" ]]; then
+    warn "Не удалось получить информацию о версии с сервера."
+    return 0
+  fi
+
+  if [[ "$remote_version" != "$VERSION" ]]; then
+    log "Доступна новая версия скрипта: $remote_version (текущая: $VERSION)"
+    if ask_yes_no "Обновить скрипт сейчас?"; then
+      do_self_update
+    fi
+  else
+    log "Скрипт актуален (v$VERSION)."
+  fi
+}
+
+do_self_update() {
+  local script_path
+  script_path="$(readlink -f "$0")"
+  local tmp_file
+  tmp_file=$(mktemp "$STATE_DIR/cli2api.sh.XXXXXX")
+  log "Загрузка обновления..."
+
+  if curl -sL --connect-timeout 10 "$UPDATE_URL" -o "$tmp_file"; then
+    if [[ -s "$tmp_file" ]] && grep -q "VERSION=" "$tmp_file"; then
+      chmod +x "$tmp_file"
+      mv -f "$tmp_file" "$script_path"
+      ok "Скрипт обновлён до версии $(grep -m1 -oP '^VERSION="\K[^"]+' "$script_path" || echo "unknown"). Перезапуск..."
+      exec 1>&3 2>&4
+      exec "$script_path" "$@"
+    else
+      err "Ошибка: Скачанный файл поврежден или некорректен."
+      rm -f "$tmp_file"
+      return 1
+    fi
+  else
+    err "Ошибка при скачивании обновления."
+    rm -f "$tmp_file"
+    return 1
+  fi
 }
 
 # -------- steps --------
@@ -221,11 +274,15 @@ step_70_run_app() {
 main() {
   local arg_pid=""
   local do_reset=0
+  local no_update=0
 
   for arg in "$@"; do
     case "$arg" in
       --reset)
         do_reset=1
+        ;;
+      --no-update)
+        no_update=1
         ;;
       *)
         arg_pid="$arg"
@@ -255,6 +312,7 @@ main() {
   fi
 
   load_state
+  check_self_update "$@"
 
   local first_run=0
   [[ -f "$STATE_FILE" ]] || first_run=1
