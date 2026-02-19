@@ -219,6 +219,41 @@ step_70_run_app() {
 
 # -------- main --------
 main() {
+  local arg_pid=""
+  local do_reset=0
+
+  for arg in "$@"; do
+    case "$arg" in
+      --reset)
+        do_reset=1
+        ;;
+      *)
+        arg_pid="$arg"
+        ;;
+    esac
+  done
+
+  if (( do_reset == 1 )); then
+    warn "ВНИМАНИЕ: Выбран ПОЛНЫЙ СБРОС (--reset)."
+    if ask_yes_no "Это удалит все файлы приложения и настройки ($REPO_DIR и $STATE_DIR). Продолжить?"; then
+      log "Выполняю сброс..."
+      exec 1>&3 2>&4
+      rm -rf "$REPO_DIR" "$STATE_DIR"
+      
+      mkdir -p "$STATE_DIR"
+      touch "$LOG_FILE"
+      exec > >(tee -a "$LOG_FILE") 2>&1
+      
+      DONE_STEP=0
+      PROJECT_ID_SAVED=""
+      USE_VENV=1
+      
+      ok "Все данные удалены. Начинаю установку заново."
+    else
+      log "Сброс отменён."
+    fi
+  fi
+
   load_state
 
   local first_run=0
@@ -240,7 +275,7 @@ main() {
   fi
 
   if [[ -z "${PROJECT_ID_SAVED}" ]]; then
-    local pid="${1:-}"
+    local pid="$arg_pid"
     if [[ -z "$pid" ]]; then
       read -r -p "Введите GOOGLE_CLOUD_PROJECT (ID проекта): " pid
     fi
@@ -251,9 +286,9 @@ main() {
     ok "PROJECT_ID сохранён: $PROJECT_ID_SAVED"
   else
     ok "PROJECT_ID уже сохранён: $PROJECT_ID_SAVED"
-    if [[ -n "${1:-}" && "${1:-}" != "$PROJECT_ID_SAVED" ]]; then
-      warn "Передан новый PROJECT_ID, обновляю: ${1:-}"
-      PROJECT_ID_SAVED="${1:-}"
+    if [[ -n "$arg_pid" && "$arg_pid" != "$PROJECT_ID_SAVED" ]]; then
+      warn "Передан новый PROJECT_ID, обновляю: $arg_pid"
+      PROJECT_ID_SAVED="$arg_pid"
       
       if (( DONE_STEP >= 60 )); then
         log "Сбрасываю прогресс до шага 55 для обновления .env."
