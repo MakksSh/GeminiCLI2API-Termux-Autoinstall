@@ -142,27 +142,7 @@ step_40_fix_requirements() {
   log "requirements.txt обновлён: pydantic<2.0 гарантирован."
 }
 
-step_50_setup_env() {
-  cd "$REPO_DIR"
-  [[ -f ".env" ]] || {
-    [[ -f ".env.example" ]] || die ".env.example не найден — не из чего создать .env"
-    cp -f ".env.example" ".env"
-    log "Создан .env из .env.example"
-  }
-
-  if grep -qE '^[[:space:]]*#?[[:space:]]*GOOGLE_CLOUD_PROJECT=' .env; then
-    sed -i -E "s|^[[:space:]]*#?[[:space:]]*GOOGLE_CLOUD_PROJECT=.*|GOOGLE_CLOUD_PROJECT=$PROJECT_ID_SAVED|g" .env
-    log "GOOGLE_CLOUD_PROJECT обновлён в .env"
-  else
-    {
-      echo ""
-      echo "GOOGLE_CLOUD_PROJECT=$PROJECT_ID_SAVED"
-    } >> .env
-    log "GOOGLE_CLOUD_PROJECT добавлен в конец .env"
-  fi
-}
-
-step_60_install_python_deps() {
+step_50_install_python_deps() {
   cd "$REPO_DIR"
 
   local py="python"
@@ -187,6 +167,26 @@ step_60_install_python_deps() {
 
   "$py" -m pip install -r requirements.txt
   log "Python зависимости установлены."
+}
+
+step_60_setup_env() {
+  cd "$REPO_DIR"
+  [[ -f ".env" ]] || {
+    [[ -f ".env.example" ]] || die ".env.example не найден — не из чего создать .env"
+    cp -f ".env.example" ".env"
+    log "Создан .env из .env.example"
+  }
+
+  if grep -qE '^[[:space:]]*#?[[:space:]]*GOOGLE_CLOUD_PROJECT=' .env; then
+    sed -i -E "s|^[[:space:]]*#?[[:space:]]*GOOGLE_CLOUD_PROJECT=.*|GOOGLE_CLOUD_PROJECT=$PROJECT_ID_SAVED|g" .env
+    log "GOOGLE_CLOUD_PROJECT обновлён в .env"
+  else
+    {
+      echo ""
+      echo "GOOGLE_CLOUD_PROJECT=$PROJECT_ID_SAVED"
+    } >> .env
+    log "GOOGLE_CLOUD_PROJECT добавлен в конец .env"
+  fi
 }
 
 step_70_run_app() {
@@ -219,6 +219,41 @@ step_70_run_app() {
 
 # -------- main --------
 main() {
+  local arg_pid=""
+  local do_reset=0
+
+  for arg in "$@"; do
+    case "$arg" in
+      --reset)
+        do_reset=1
+        ;;
+      *)
+        arg_pid="$arg"
+        ;;
+    esac
+  done
+
+  if (( do_reset == 1 )); then
+    warn "ВНИМАНИЕ: Выбран ПОЛНЫЙ СБРОС (--reset)."
+    if ask_yes_no "Это удалит все файлы приложения и настройки ($REPO_DIR и $STATE_DIR). Продолжить?"; then
+      log "Выполняю сброс..."
+      exec 1>&3 2>&4
+      rm -rf "$REPO_DIR" "$STATE_DIR"
+      
+      mkdir -p "$STATE_DIR"
+      touch "$LOG_FILE"
+      exec > >(tee -a "$LOG_FILE") 2>&1
+      
+      DONE_STEP=0
+      PROJECT_ID_SAVED=""
+      USE_VENV=1
+      
+      ok "Все данные удалены. Начинаю установку заново."
+    else
+      log "Сброс отменён."
+    fi
+  fi
+
   load_state
 
   local first_run=0
@@ -240,7 +275,7 @@ main() {
   fi
 
   if [[ -z "${PROJECT_ID_SAVED}" ]]; then
-    local pid="${1:-}"
+    local pid="$arg_pid"
     if [[ -z "$pid" ]]; then
       read -r -p "Введите GOOGLE_CLOUD_PROJECT (ID проекта): " pid
     fi
@@ -251,9 +286,20 @@ main() {
     ok "PROJECT_ID сохранён: $PROJECT_ID_SAVED"
   else
     ok "PROJECT_ID уже сохранён: $PROJECT_ID_SAVED"
-    if [[ -n "${1:-}" && "${1:-}" != "$PROJECT_ID_SAVED" ]]; then
-      warn "Передан новый PROJECT_ID, обновляю: ${1:-}"
-      PROJECT_ID_SAVED="${1:-}"
+    if [[ -n "$arg_pid" && "$arg_pid" != "$PROJECT_ID_SAVED" ]]; then
+      warn "Передан новый PROJECT_ID, обновляю: $arg_pid"
+      PROJECT_ID_SAVED="$arg_pid"
+      
+      if (( DONE_STEP >= 60 )); then
+        log "Сбрасываю прогресс до шага 55 для обновления .env."
+        DONE_STEP=55
+      fi
+
+      if [[ -f "$REPO_DIR/oauth_creds.json" ]]; then
+        log "Удаляю старый oauth_creds.json для переавторизации."
+        rm -f "$REPO_DIR/oauth_creds.json"
+      fi
+
       save_state
     fi
   fi
@@ -262,8 +308,8 @@ main() {
   run_step 20 "pkg install зависимостей" step_20_pkg_install
   run_step 30 "Клонирование/обновление репозитория" step_30_clone_or_update_repo
   run_step 40 "Правка requirements.txt (pydantic<2.0)" step_40_fix_requirements
-  run_step 50 "Создание/правка .env (GOOGLE_CLOUD_PROJECT)" step_50_setup_env
-  run_step 60 "pip install -r requirements.txt" step_60_install_python_deps
+  run_step 50 "pip install -r requirements.txt" step_50_install_python_deps
+  run_step 60 "Создание/правка .env (GOOGLE_CLOUD_PROJECT)" step_60_setup_env
 
   log "=== Финал: запуск приложения ==="
   step_70_run_app
