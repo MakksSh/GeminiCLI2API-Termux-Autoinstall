@@ -1,7 +1,8 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -Eeuo pipefail
 
-VERSION="1.1.0"
+VERSION="1.1.1"
+VERSION_DESC="Обновление пакетов в requirements.txt; Убраны ненужные пакеты из pkg install после обновления."
 UPDATE_URL="https://raw.githubusercontent.com/MakksSh/GeminiCLI2API-Termux-Autoinstall/refs/heads/main/cli2api.sh"
 SCRIPT_PATH="$(readlink -f "$0")"
 
@@ -102,16 +103,24 @@ check_self_update() {
 
   log "Проверка обновлений скрипта..."
 
-  local remote_version
-  remote_version=$(curl -sL --connect-timeout 5 "$UPDATE_URL" | grep -m1 -oP '^VERSION="\K[^"]+' || true)
+  local remote_script
+  remote_script=$(curl -sL --connect-timeout 5 "$UPDATE_URL" || true)
 
-  if [[ -z "$remote_version" ]]; then
+  if [[ -z "$remote_script" ]]; then
     warn "Не удалось получить информацию о версии с сервера."
     return 0
   fi
 
+  local remote_version
+  remote_version=$(echo "$remote_script" | grep -m1 -oP '^VERSION="\K[^"]+' || true)
+
   if [[ "$remote_version" != "$VERSION" ]]; then
+    local remote_desc
+    remote_desc=$(echo "$remote_script" | grep -m1 -oP '^VERSION_DESC="\K[^"]+' || true)
+
     log "Доступна новая версия скрипта: $remote_version (текущая: $VERSION)"
+    [[ -n "$remote_desc" ]] && log "Что нового: $remote_desc"
+
     if ask_yes_no "Обновить скрипт сейчас?"; then
       do_self_update
     fi
@@ -156,7 +165,7 @@ step_10_pkg_update_upgrade() {
 
 step_20_pkg_install() {
   cd "$HOME_DIR"
-  pkg install -y nano python rust git python-pip clang binutils python-cryptography
+  pkg install -y nano python git python-pip python-cryptography
   if ! pkg install -y nodejs-lts; then
     warn "Пакет nodejs-lts не найден. Ставлю nodejs."
     pkg install -y nodejs
@@ -185,14 +194,16 @@ step_40_fix_requirements() {
   local tmp
   tmp="$(mktemp)"
   awk '
-    BEGIN{ }
     /^pydantic([<>=!~].*)?$/ { next }
-    { print }
+    {
+      gsub(/uvicorn\[standard\]/, "uvicorn")
+      print
+    }
     END{ print "pydantic<2.0" }
   ' requirements.txt > "$tmp"
   mv "$tmp" requirements.txt
 
-  log "requirements.txt обновлён: pydantic<2.0 гарантирован."
+  log "requirements.txt обновлён: pydantic<2.0 и uvicorn."
 }
 
 step_50_install_python_deps() {
