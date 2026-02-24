@@ -2,6 +2,7 @@
 set -Eeuo pipefail
 
 VERSION="1.1.1"
+VERSION_DESC="Обновление пакетов в requirements.txt; Убраны ненужные пакеты из pkg install после обновления."
 UPDATE_URL="https://raw.githubusercontent.com/MakksSh/GeminiCLI2API-Termux-Autoinstall/refs/heads/main/cli2api.sh"
 SCRIPT_PATH="$(readlink -f "$0")"
 
@@ -102,16 +103,24 @@ check_self_update() {
 
   log "Проверка обновлений скрипта..."
 
-  local remote_version
-  remote_version=$(curl -sL --connect-timeout 5 "$UPDATE_URL" | grep -m1 -oP '^VERSION="\K[^"]+' || true)
+  local remote_script
+  remote_script=$(curl -sL --connect-timeout 5 "$UPDATE_URL" || true)
 
-  if [[ -z "$remote_version" ]]; then
+  if [[ -z "$remote_script" ]]; then
     warn "Не удалось получить информацию о версии с сервера."
     return 0
   fi
 
+  local remote_version
+  remote_version=$(echo "$remote_script" | grep -m1 -oP '^VERSION="\K[^"]+' || true)
+
   if [[ "$remote_version" != "$VERSION" ]]; then
+    local remote_desc
+    remote_desc=$(echo "$remote_script" | grep -m1 -oP '^VERSION_DESC="\K[^"]+' || true)
+
     log "Доступна новая версия скрипта: $remote_version (текущая: $VERSION)"
+    [[ -n "$remote_desc" ]] && log "Что нового: $remote_desc"
+
     if ask_yes_no "Обновить скрипт сейчас?"; then
       do_self_update
     fi
