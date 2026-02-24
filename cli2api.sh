@@ -1,7 +1,7 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -Eeuo pipefail
 
-VERSION="1.1.0"
+VERSION="1.1.1"
 UPDATE_URL="https://raw.githubusercontent.com/MakksSh/GeminiCLI2API-Termux-Autoinstall/refs/heads/main/cli2api.sh"
 SCRIPT_PATH="$(readlink -f "$0")"
 
@@ -185,14 +185,16 @@ step_40_fix_requirements() {
   local tmp
   tmp="$(mktemp)"
   awk '
-    BEGIN{ }
     /^pydantic([<>=!~].*)?$/ { next }
-    { print }
+    {
+      gsub(/uvicorn\[standard\]/, "uvicorn")
+      print
+    }
     END{ print "pydantic<2.0" }
   ' requirements.txt > "$tmp"
   mv "$tmp" requirements.txt
 
-  log "requirements.txt обновлён: pydantic<2.0 гарантирован."
+  log "requirements.txt обновлён: pydantic<2.0 и uvicorn."
 }
 
 step_50_install_python_deps() {
