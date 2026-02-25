@@ -7,7 +7,7 @@ UPDATE_URL="https://raw.githubusercontent.com/MakksSh/GeminiCLI2API-Termux-Autoi
 SCRIPT_PATH="$(readlink -f "$0")"
 
 APP_NAME="geminicli2api"
-REPO_URL="https://github.com/gzzhongqi/geminicli2api"
+REPO_URL="https://github.com/MakksSh/geminicli2api"
 HOME_DIR="$HOME"
 REPO_DIR="$HOME_DIR/$APP_NAME"
 
