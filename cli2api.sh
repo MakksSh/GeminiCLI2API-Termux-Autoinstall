@@ -376,7 +376,7 @@ main() {
   run_step 10 "pkg update && pkg upgrade" step_10_pkg_update_upgrade
   run_step 20 "pkg install зависимостей" step_20_pkg_install
   run_step 30 "Клонирование/обновление репозитория" step_30_clone_or_update_repo
-  run_step 40 "Правка requirements.txt (pydantic<2.0)" step_40_fix_requirements
+  #run_step 40 "Правка requirements.txt (pydantic<2.0)" step_40_fix_requirements
   run_step 50 "pip install -r requirements.txt" step_50_install_python_deps
   run_step 60 "Создание/правка .env (GOOGLE_CLOUD_PROJECT)" step_60_setup_env
 
