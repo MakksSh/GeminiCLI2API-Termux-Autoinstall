@@ -166,10 +166,6 @@ step_10_pkg_update_upgrade() {
 step_20_pkg_install() {
   cd "$HOME_DIR"
   pkg install -y nano python git python-pip python-cryptography
-  if ! pkg install -y nodejs-lts; then
-    warn "Пакет nodejs-lts не найден. Ставлю nodejs."
-    pkg install -y nodejs
-  fi
 }
 
 step_30_clone_or_update_repo() {
