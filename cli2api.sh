@@ -1,8 +1,8 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -Eeuo pipefail
 
-VERSION="1.1.1"
-VERSION_DESC="Обновление пакетов в requirements.txt; Убраны ненужные пакеты из pkg install после обновления."
+VERSION="1.2.0"
+VERSION_DESC="Удален устаревший шаг правки requirements.txt; Исправлена нумерация шагов с миграцией state; Новый репозиторий geminicli2api."
 UPDATE_URL="https://raw.githubusercontent.com/MakksSh/GeminiCLI2API-Termux-Autoinstall/refs/heads/main/cli2api.sh"
 SCRIPT_PATH="$(readlink -f "$0")"
 
@@ -52,6 +52,7 @@ ask_yes_no() {
 DONE_STEP=0
 PROJECT_ID_SAVED=""
 USE_VENV=1
+STATE_SCHEMA=2
 
 load_state() {
   if [[ -f "$STATE_FILE" ]]; then
@@ -61,6 +62,16 @@ load_state() {
   DONE_STEP="${DONE_STEP:-0}"
   PROJECT_ID_SAVED="${PROJECT_ID_SAVED:-}"
   USE_VENV="${USE_VENV:-1}"
+  STATE_SCHEMA="${STATE_SCHEMA:-1}"
+
+  if (( STATE_SCHEMA < 2 )); then
+    if (( DONE_STEP >= 40 )); then
+      DONE_STEP=$((DONE_STEP - 10))
+    fi
+    STATE_SCHEMA=2
+    save_state
+    log "Выполнена миграция state: обновлена нумерация шагов."
+  fi
 }
 
 save_state() {
@@ -68,6 +79,7 @@ save_state() {
 DONE_STEP=$DONE_STEP
 PROJECT_ID_SAVED=$(printf "%q" "$PROJECT_ID_SAVED")
 USE_VENV=$USE_VENV
+STATE_SCHEMA=$STATE_SCHEMA
 EOF
 }
 
@@ -183,26 +195,7 @@ step_30_clone_or_update_repo() {
   fi
 }
 
-step_40_fix_requirements() {
-  cd "$REPO_DIR"
-  [[ -f "requirements.txt" ]] || die "requirements.txt не найден в $REPO_DIR"
-
-  local tmp
-  tmp="$(mktemp)"
-  awk '
-    /^pydantic([<>=!~].*)?$/ { next }
-    {
-      gsub(/uvicorn\[standard\]/, "uvicorn")
-      print
-    }
-    END{ print "pydantic<2.0" }
-  ' requirements.txt > "$tmp"
-  mv "$tmp" requirements.txt
-
-  log "requirements.txt обновлён: pydantic<2.0 и uvicorn."
-}
-
-step_50_install_python_deps() {
+step_40_install_python_deps() {
   cd "$REPO_DIR"
 
   local py="python"
@@ -229,7 +222,7 @@ step_50_install_python_deps() {
   log "Python зависимости установлены."
 }
 
-step_60_setup_env() {
+step_50_setup_env() {
   cd "$REPO_DIR"
   [[ -f ".env" ]] || {
     [[ -f ".env.example" ]] || die ".env.example не найден — не из чего создать .env"
@@ -249,7 +242,7 @@ step_60_setup_env() {
   fi
 }
 
-step_70_run_app() {
+step_60_run_app() {
   cd "$REPO_DIR"
 
   pids="$(pgrep -f "$HOME/geminicli2api/.*run\.py" || true)"
@@ -311,6 +304,7 @@ main() {
       DONE_STEP=0
       PROJECT_ID_SAVED=""
       USE_VENV=1
+      STATE_SCHEMA=2
       
       ok "Все данные удалены. Начинаю установку заново."
     else
@@ -332,6 +326,7 @@ main() {
       DONE_STEP=0
       PROJECT_ID_SAVED=""
       USE_VENV=1
+      STATE_SCHEMA=2
       save_state
       ok "Состояние сброшено. Начинаю установку с нуля."
     else
@@ -355,9 +350,9 @@ main() {
       warn "Передан новый PROJECT_ID, обновляю: $arg_pid"
       PROJECT_ID_SAVED="$arg_pid"
       
-      if (( DONE_STEP >= 60 )); then
-        log "Сбрасываю прогресс до шага 55 для обновления .env."
-        DONE_STEP=55
+      if (( DONE_STEP >= 50 )); then
+        log "Сбрасываю прогресс до шага 45 для обновления .env."
+        DONE_STEP=45
       fi
 
       if [[ -f "$REPO_DIR/oauth_creds.json" ]]; then
@@ -372,12 +367,11 @@ main() {
   run_step 10 "pkg update && pkg upgrade" step_10_pkg_update_upgrade
   run_step 20 "pkg install зависимостей" step_20_pkg_install
   run_step 30 "Клонирование/обновление репозитория" step_30_clone_or_update_repo
-  #run_step 40 "Правка requirements.txt (pydantic<2.0)" step_40_fix_requirements
-  run_step 50 "pip install -r requirements.txt" step_50_install_python_deps
-  run_step 60 "Создание/правка .env (GOOGLE_CLOUD_PROJECT)" step_60_setup_env
+  run_step 40 "pip install -r requirements.txt" step_40_install_python_deps
+  run_step 50 "Создание/правка .env (GOOGLE_CLOUD_PROJECT)" step_50_setup_env
 
   log "=== Финал: запуск приложения ==="
-  step_70_run_app
+  step_60_run_app
 }
 
 main "$@"
