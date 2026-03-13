@@ -1,8 +1,8 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -Eeuo pipefail
 
-VERSION="1.2.1"
-VERSION_DESC="Исправлена миграция state.env: старая схема без STATE_SCHEMA теперь корректно конвертирует DONE_STEP."
+VERSION="1.2.0"
+VERSION_DESC="Удален устаревший шаг правки requirements.txt; Исправлена нумерация шагов с миграцией state; Новый репозиторий geminicli2api."
 UPDATE_URL="https://raw.githubusercontent.com/MakksSh/GeminiCLI2API-Termux-Autoinstall/refs/heads/main/cli2api.sh"
 SCRIPT_PATH="$(readlink -f "$0")"
 
