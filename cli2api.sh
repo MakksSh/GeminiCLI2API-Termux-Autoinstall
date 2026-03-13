@@ -1,8 +1,8 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -Eeuo pipefail
 
-VERSION="1.2.0"
-VERSION_DESC="Удален устаревший шаг правки requirements.txt; Исправлена нумерация шагов с миграцией state; Новый репозиторий geminicli2api."
+VERSION="1.2.1"
+VERSION_DESC="Исправлена миграция state.env: старая схема без STATE_SCHEMA теперь корректно конвертирует DONE_STEP."
 UPDATE_URL="https://raw.githubusercontent.com/MakksSh/GeminiCLI2API-Termux-Autoinstall/refs/heads/main/cli2api.sh"
 SCRIPT_PATH="$(readlink -f "$0")"
 
@@ -55,22 +55,38 @@ USE_VENV=1
 STATE_SCHEMA=2
 
 load_state() {
+  local has_state_file=0
+  local has_state_schema=0
+
   if [[ -f "$STATE_FILE" ]]; then
+    has_state_file=1
     # shellcheck disable=SC1090
     source "$STATE_FILE" || true
+    if grep -qE '^[[:space:]]*STATE_SCHEMA=' "$STATE_FILE"; then
+      has_state_schema=1
+    fi
   fi
   DONE_STEP="${DONE_STEP:-0}"
   PROJECT_ID_SAVED="${PROJECT_ID_SAVED:-}"
   USE_VENV="${USE_VENV:-1}"
-  STATE_SCHEMA="${STATE_SCHEMA:-1}"
 
-  if (( STATE_SCHEMA < 2 )); then
-    if (( DONE_STEP >= 40 )); then
-      DONE_STEP=$((DONE_STEP - 10))
+  if (( has_state_file == 1 )); then
+    if (( has_state_schema == 0 )); then
+      STATE_SCHEMA=1
+    else
+      STATE_SCHEMA="${STATE_SCHEMA:-1}"
     fi
+
+    if (( STATE_SCHEMA < 2 )); then
+      if (( DONE_STEP >= 40 )); then
+        DONE_STEP=$((DONE_STEP - 10))
+      fi
+      STATE_SCHEMA=2
+      save_state
+      log "Выполнена миграция state: обновлена нумерация шагов."
+    fi
+  else
     STATE_SCHEMA=2
-    save_state
-    log "Выполнена миграция state: обновлена нумерация шагов."
   fi
 }
 
