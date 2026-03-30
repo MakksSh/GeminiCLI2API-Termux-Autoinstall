@@ -1,8 +1,8 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -Eeuo pipefail
 
-VERSION="1.2.0"
-VERSION_DESC="Удален устаревший шаг правки requirements.txt; Исправлена нумерация шагов с миграцией state; Новый репозиторий geminicli2api."
+VERSION="1.3.0"
+VERSION_DESC="Добавлена поддержка установки для Python 3.13"
 UPDATE_URL="https://raw.githubusercontent.com/MakksSh/GeminiCLI2API-Termux-Autoinstall/refs/heads/main/cli2api.sh"
 SCRIPT_PATH="$(readlink -f "$0")"
 
@@ -52,7 +52,8 @@ ask_yes_no() {
 DONE_STEP=0
 PROJECT_ID_SAVED=""
 USE_VENV=1
-STATE_SCHEMA=2
+PYTHON_MM=""
+STATE_SCHEMA=3
 
 load_state() {
   local has_state_file=0
@@ -69,6 +70,7 @@ load_state() {
   DONE_STEP="${DONE_STEP:-0}"
   PROJECT_ID_SAVED="${PROJECT_ID_SAVED:-}"
   USE_VENV="${USE_VENV:-1}"
+  PYTHON_MM="${PYTHON_MM:-}"
 
   if (( has_state_file == 1 )); then
     if (( has_state_schema == 0 )); then
@@ -85,8 +87,15 @@ load_state() {
       save_state
       log "Выполнена миграция state: обновлена нумерация шагов."
     fi
+
+    if (( STATE_SCHEMA < 3 )); then
+      PYTHON_MM="${PYTHON_MM:-}"
+      STATE_SCHEMA=3
+      save_state
+      log "Выполнена миграция state: добавлено сохранение версии Python."
+    fi
   else
-    STATE_SCHEMA=2
+    STATE_SCHEMA=3
   fi
 }
 
@@ -95,6 +104,7 @@ save_state() {
 DONE_STEP=$DONE_STEP
 PROJECT_ID_SAVED=$(printf "%q" "$PROJECT_ID_SAVED")
 USE_VENV=$USE_VENV
+PYTHON_MM=$(printf "%q" "$PYTHON_MM")
 STATE_SCHEMA=$STATE_SCHEMA
 EOF
 }
@@ -123,6 +133,35 @@ run_step() {
   "$3"
   ok "Шаг $step завершён: $title"
   set_done "$step"
+}
+
+detect_python_mm() {
+  command -v python >/dev/null 2>&1 || die "Python не найден после установки pkg."
+
+  local py_mm
+  py_mm="$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+
+  case "$py_mm" in
+    3.12|3.13)
+      PYTHON_MM="$py_mm"
+      save_state
+      log "Определена версия Python в Termux: $PYTHON_MM"
+      ;;
+    *)
+      die "Обнаружена неподдерживаемая версия Python: $py_mm. Скрипт ожидает Python 3.12 или 3.13."
+      ;;
+  esac
+}
+
+ensure_python_mm() {
+  case "${PYTHON_MM:-}" in
+    3.12|3.13)
+      return 0
+      ;;
+  esac
+
+  warn "Версия Python не сохранена в state. Определяю..."
+  detect_python_mm
 }
 
 # -------- self-update --------
@@ -194,6 +233,11 @@ step_10_pkg_update_upgrade() {
 step_20_pkg_install() {
   cd "$HOME_DIR"
   pkg install -y nano python git python-pip python-cryptography
+  detect_python_mm
+
+  if [[ "$PYTHON_MM" == "3.13" ]]; then
+    pkg install rust -y
+  fi
 }
 
 step_30_clone_or_update_repo() {
@@ -213,6 +257,14 @@ step_30_clone_or_update_repo() {
 
 step_40_install_python_deps() {
   cd "$REPO_DIR"
+  ensure_python_mm
+
+  local requirements_file="requirements.txt"
+  if [[ "$PYTHON_MM" == "3.13" ]]; then
+    requirements_file="requirements_313.txt"
+  fi
+
+  [[ -f "$requirements_file" ]] || die "Файл зависимостей не найден: $requirements_file"
 
   local py="python"
   if (( USE_VENV == 1 )); then
@@ -234,8 +286,10 @@ step_40_install_python_deps() {
     log "Использую глобальный python/pip"
   fi
 
-  "$py" -m pip install -r requirements.txt
-  log "Python зависимости установлены."
+  export ANDROID_API_LEVEL=$(getprop ro.build.version.sdk)
+
+  "$py" -m pip install -r "$requirements_file"
+  log "Python зависимости установлены из $requirements_file."
 }
 
 step_50_setup_env() {
@@ -320,7 +374,8 @@ main() {
       DONE_STEP=0
       PROJECT_ID_SAVED=""
       USE_VENV=1
-      STATE_SCHEMA=2
+      PYTHON_MM=""
+      STATE_SCHEMA=3
       
       ok "Все данные удалены. Начинаю установку заново."
     else
@@ -342,7 +397,8 @@ main() {
       DONE_STEP=0
       PROJECT_ID_SAVED=""
       USE_VENV=1
-      STATE_SCHEMA=2
+      PYTHON_MM=""
+      STATE_SCHEMA=3
       save_state
       ok "Состояние сброшено. Начинаю установку с нуля."
     else
