@@ -1,8 +1,8 @@
 #!/data/data/com.termux/files/usr/bin/bash
 set -Eeuo pipefail
 
-VERSION="1.3.0"
-VERSION_DESC="Добавлена поддержка установки для Python 3.13"
+VERSION="1.3.1"
+VERSION_DESC="Добавлена поддержка установки для Python 3.14"
 UPDATE_URL="https://raw.githubusercontent.com/MakksSh/GeminiCLI2API-Termux-Autoinstall/refs/heads/main/cli2api.sh"
 SCRIPT_PATH="$(readlink -f "$0")"
 
@@ -142,20 +142,20 @@ detect_python_mm() {
   py_mm="$(python -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
 
   case "$py_mm" in
-    3.12|3.13)
+    3.12|3.13|3.14)
       PYTHON_MM="$py_mm"
       save_state
       log "Определена версия Python в Termux: $PYTHON_MM"
       ;;
     *)
-      die "Обнаружена неподдерживаемая версия Python: $py_mm. Скрипт ожидает Python 3.12 или 3.13."
+      die "Обнаружена неподдерживаемая версия Python: $py_mm. Скрипт ожидает Python 3.12, 3.13, 3.14"
       ;;
   esac
 }
 
 ensure_python_mm() {
   case "${PYTHON_MM:-}" in
-    3.12|3.13)
+    3.12|3.13|3.14)
       return 0
       ;;
   esac
@@ -235,7 +235,7 @@ step_20_pkg_install() {
   pkg install -y nano python git python-pip python-cryptography
   detect_python_mm
 
-  if [[ "$PYTHON_MM" == "3.13" ]]; then
+  if [[ "$PYTHON_MM" == "3.13" ]] || [[ "$PYTHON_MM" == "3.14" ]]; then
     pkg install rust -y
   fi
 }
@@ -260,7 +260,7 @@ step_40_install_python_deps() {
   ensure_python_mm
 
   local requirements_file="requirements.txt"
-  if [[ "$PYTHON_MM" == "3.13" ]]; then
+  if [[ "$PYTHON_MM" == "3.13" ]] || [[ "$PYTHON_MM" == "3.14" ]]; then
     requirements_file="requirements_313.txt"
   fi
 
